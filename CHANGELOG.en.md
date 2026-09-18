@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 0.1.5 (2026-09-18)
+
+- **Fix: the Git panel could not read the current directory on dsh 0.1.6-alpha.2.** That release removed
+  the `current` field from the sessions list store (`useSessions` / `SessionListState`), while the plugin
+  resolved the active session's `cwd` from `s.current`; the value was always empty, so the panel never
+  found the repository. It now prefers the `sessionId` the `conversation.view` slot passes
+  (`s.byId[sessionId]?.cwd`) and keeps `s.current` only as a fallback for older runtimes; the shared
+  selector in both the Git and Files views was corrected.
+- Added regression test `test/client-cwd.test.js`, which extracts the selector from the built bundle and
+  asserts cwd resolution against both the 0.1.6-alpha.2 and legacy store shapes.
+
 ## 0.1.4 (2026-09-14)
 
 - **New: one dropdown for branches and tags**: the Git panel's branch capsule is now a single native

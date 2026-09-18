@@ -1,5 +1,15 @@
 # 更新说明（CHANGELOG）
 
+## 0.1.5（2026-09-18）
+
+- **修复：dsh 0.1.6-alpha.2 下 Git 面板读不到当前目录**。该版本从会话列表 store
+  （`useSessions` / `SessionListState`）移除了 `current` 字段，而插件原先靠 `s.current` 取当前会话的
+  `cwd`，取值恒为空，面板因此找不到仓库。现改为优先读取 `conversation.view` 槽位提供的 `sessionId`
+  （`s.byId[sessionId]?.cwd`），并保留 `s.current` 作为旧运行时回退；Git 视图与文件视图里的同一段
+  选择器一起修正。
+- 新增回归测试 `test/client-cwd.test.js`：从构建产物中提取选择器，分别在 0.1.6-alpha.2 与旧版 store
+  形状下断言 cwd 解析。
+
 ## 0.1.4（2026-09-14）
 
 - **新增：分支 / 标签统一下拉**：顶栏的分支胶囊改为一个下拉框，用 `<optgroup>` 分组列出「本地分支 / 远程分支 /

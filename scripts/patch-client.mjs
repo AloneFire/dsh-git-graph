@@ -333,5 +333,29 @@ const modalCancelOld = `jsx(primitives.Button, { variant: "outline", size: "sm",
 if (s.split(modalCancelOld).length !== 2) throw new Error("modal cancel anchor not found");
 s = s.split(modalCancelOld).join(`jsx(primitives.Button, { variant: "outline", size: "sm", onClick: () => { if (modal.onCancel) modal.onCancel(); setModal(null); }, children: "取消" }),`);
 
+// Patch 16: dsh 0.1.6-alpha.2 removed `current` from the sessions list store
+// (`useSessions` SessionListState), so Git/Files resolved an empty working
+// directory and the panel could not find the repository. The
+// 'conversation.view' slot now passes the active `sessionId` as a framework
+// prop: prefer it and keep `current` as a fallback for older runtimes.
+const cwdOld = `      const sessionCwd = props.useSessions((s) => {
+        const cur = s.current;
+        if (!cur) return "";
+        const entry = s.byId ? s.byId[cur] : undefined;
+        return entry && typeof entry.cwd === "string" ? entry.cwd : "";
+      });`;
+const cwdNew = `      const sessionCwd = props.useSessions((s) => {
+        // dsh 0.1.6-alpha.2 dropped the 'current' field from the sessions list
+        // store; the conversation.view slot now passes the active Session id to
+        // the view. Prefer it, with 'current' as a fallback for older runtimes.
+        const cur = props.sessionId || s.current;
+        if (!cur) return "";
+        const entry = s.byId ? s.byId[cur] : undefined;
+        return entry && typeof entry.cwd === "string" ? entry.cwd : "";
+      });`;
+const c16 = s.split(cwdOld).length - 1;
+if (c16 !== 2) throw new Error(`expected the session-cwd selector to appear twice (Git + Files), found ${c16}`);
+s = s.split(cwdOld).join(cwdNew);
+
 writeFileSync(file, s);
-console.log("patched client bundle: openFile guard + wording + alpha.5 cm fallback + git-only tabs + width handles + mobile responsive + tag switch + self-hosting guard");
+console.log("patched client bundle: openFile guard + wording + alpha.5 cm fallback + git-only tabs + width handles + mobile responsive + tag switch + self-hosting guard + 0.1.6 session cwd");
