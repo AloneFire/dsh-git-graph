@@ -1,5 +1,16 @@
 # 更新说明（CHANGELOG）
 
+## 0.1.6（2026-09-22）
+
+- **修复：dsh 0.1.7-alpha.1 下 Git 页签整页崩溃（“读取不到目录”的真正原因）**。该版本把分支图标导出由
+  `IconBranchOutline16` 改名为 `IconBranchOutlineRegular` / `IconBranchOutlineMedium`，插件直接渲染了被删除的
+  `primitives.IconBranchOutline16`，于是 React 收到 undefined 元素类型抛出 #130，整个 `conversation.view`
+  被错误边界替换成空白。现改为运行时按存在的导出回退解析（`IconBranchOutline16 → Regular → Medium → 空组件`），
+  新旧 dsh 均可渲染。
+- 新增回归测试 `test/primitives-compat.test.js`：分别用 0.1.6 / 0.1.7 / 未来无该导出的三种 primitives 形状断言
+  图标解析，并扫描构建产物确保没有把被删除的 primitive 直接当作 JSX 类型使用。
+- 说明：0.1.5 的会话 `cwd` 修复（`props.sessionId`）仍然有效，本次崩溃掩盖了它。
+
 ## 0.1.5（2026-09-18）
 
 - **修复：dsh 0.1.6-alpha.2 下 Git 面板读不到当前目录**。该版本从会话列表 store

@@ -357,5 +357,27 @@ const c16 = s.split(cwdOld).length - 1;
 if (c16 !== 2) throw new Error(`expected the session-cwd selector to appear twice (Git + Files), found ${c16}`);
 s = s.split(cwdOld).join(cwdNew);
 
+// Patch 17: dsh 0.1.7-alpha.1 renamed the branch icon export
+// (IconBranchOutline16 -> IconBranchOutlineRegular/IconBranchOutlineMedium).
+// The removed name became an undefined JSX type, so React threw #130 and the
+// whole Git view rendered the slot error boundary (blank panel) instead of the
+// repository. Resolve whichever export exists at runtime; the fallback keeps
+// the name from ever reaching React as `undefined`.
+const primAnchor = `    let primitives = require("@deepseek-ai/dsh-client-ui-primitives");`;
+if (s.split(primAnchor).length !== 2) throw new Error("primitives require anchor not found");
+s = s.split(primAnchor).join(primAnchor + `
+    // dsh 0.1.7-alpha.1 renamed the branch icon (IconBranchOutline16 ->
+    // IconBranchOutlineRegular/IconBranchOutlineMedium). Resolve whichever
+    // export exists at runtime: an unknown name would be an undefined JSX
+    // type and throw React #130, crashing the whole view (GitTab blank).
+    const BranchIcon = primitives.IconBranchOutline16
+      || primitives.IconBranchOutlineRegular
+      || primitives.IconBranchOutlineMedium
+      || (() => null);`);
+const iconUse = "primitives.IconBranchOutline16,";
+const branchIconUses = s.split(iconUse).length - 1;
+if (branchIconUses !== 3) throw new Error(`expected 3 branch-icon usages, found ${branchIconUses}`);
+s = s.split(iconUse).join("BranchIcon,");
+
 writeFileSync(file, s);
-console.log("patched client bundle: openFile guard + wording + alpha.5 cm fallback + git-only tabs + width handles + mobile responsive + tag switch + self-hosting guard + 0.1.6 session cwd");
+console.log("patched client bundle: openFile guard + wording + alpha.5 cm fallback + git-only tabs + width handles + mobile responsive + tag switch + self-hosting guard + 0.1.6 session cwd + 0.1.7 branch icon");

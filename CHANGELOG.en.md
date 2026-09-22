@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 0.1.6 (2026-09-22)
+
+- **Fix: the Git tab crashed entirely on dsh 0.1.7-alpha.1 (the real reason it "could not read the
+  directory").** That release renamed the branch icon export from `IconBranchOutline16` to
+  `IconBranchOutlineRegular` / `IconBranchOutlineMedium`. The plugin rendered the removed
+  `primitives.IconBranchOutline16`, so React received an undefined element type and threw #130,
+  replacing the whole `conversation.view` with the error boundary (a blank panel). The bundle now resolves
+  whichever export exists at runtime (`IconBranchOutline16 → Regular → Medium → empty component`) and
+  renders on both old and new dsh.
+- Added regression test `test/primitives-compat.test.js`: it asserts icon resolution against the
+  0.1.6 / 0.1.7 / no-such-export primitives shapes and scans the built bundle so a removed primitive is
+  never used directly as a JSX type.
+- Note: the 0.1.5 session-`cwd` fix (`props.sessionId`) is still valid; the crash masked it.
+
 ## 0.1.5 (2026-09-18)
 
 - **Fix: the Git panel could not read the current directory on dsh 0.1.6-alpha.2.** That release removed
