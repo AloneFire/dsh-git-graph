@@ -213,3 +213,29 @@ test("/git status flags the plugin's own source tree (self-hosting guard)", asyn
   assert.equal(self.value.self, true, "the plugin's own checkout must be flagged");
 });
 
+test("/git graphLog omits stash nodes", async () => {
+  const stashRepo = await mkdtemp(join(tmpdir(), "dsh-git-graph-stash-"));
+  try {
+    await gitRun(stashRepo, ["init", "-q", "-b", "main"]);
+    await gitRun(stashRepo, ["config", "user.email", "test@example.com"]);
+    await gitRun(stashRepo, ["config", "user.name", "Test User"]);
+    await writeFile(join(stashRepo, "f.txt"), "one\n");
+    await gitRun(stashRepo, ["add", "-A"]);
+    await gitRun(stashRepo, ["commit", "-q", "-m", "base"]);
+    await writeFile(join(stashRepo, "f.txt"), "two\n");
+    await gitRun(stashRepo, ["stash", "push", "-q", "-m", "wip"]);
+
+    const stashHash = (await gitRun(stashRepo, ["rev-parse", "refs/stash"])).stdout.trim();
+    const res = await post("/git", { op: "graphLog", path: stashRepo, n: 50 });
+    assert.equal(res.ok, true, JSON.stringify(res));
+    assert.ok(res.value.rows.some((r) => r.subject === "base"), "branch commits stay in the graph");
+    assert.ok(
+      !res.value.rows.some((r) => r.hash === stashHash),
+      "the stash commit (refs/stash) must not appear in the graph",
+    );
+  } finally {
+    await rm(stashRepo, { recursive: true, force: true });
+  }
+});
+
+

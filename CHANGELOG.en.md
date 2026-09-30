@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 0.1.7 (2026-09-22)
+
+- **The commit graph no longer shows stash nodes.** `graphLog` runs `git log --all`, and a stash also
+  lives under `refs/` (`refs/stash`), so the stash commit and its index commit appeared as orphan nodes
+  beside the branches. `--exclude=refs/stash` is now placed before `--all`, leaving only commits reachable
+  from branches, remote-tracking branches and tags.
+- Added an integration test that builds a throwaway repository with a stash and asserts `graphLog` keeps the
+  branch commit while omitting the stash commit.
+- Note: this is a host-half change, so it takes effect after restarting `dsh web` (or installing 0.1.7); a
+  page refresh alone does not reload host plugins.
+
 ## 0.1.6 (2026-09-22)
 
 - **Fix: the Git tab crashed entirely on dsh 0.1.7-alpha.1 (the real reason it "could not read the
