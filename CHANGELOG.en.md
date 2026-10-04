@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 0.2.0 (2026-10-04)
+
+- **New: managing sub-repositories (discovery + switching + worktree grouping)**. When the session working directory contains several repositories, the Git panel shows a "repo" switcher between the Git title and the branch capsule:
+  - New host op `listRepos`: scans the child (depth 1) and grandchild (depth 2) directories of the session working directory; `depth` defaults to 2 and accepts 1–4 (invalid values fall back to the default, out-of-range values are clamped); a `.git` directory (main repository) or file (linked worktree) is recognized.
+  - Checkouts are grouped via `git rev-parse --git-common-dir`, and `git worktree list` fills in each checkout's branch / short hash; members are labelled `main` (main repository) or `linked` (additional checkout).
+  - When the session root is not a repository but sub-repositories were found, the panel automatically enters the first sub-repository (this also fixes the previous "non-repository root fails with an error"). With a single repository that is the session root, the switcher stays hidden and the single-repo UI is unchanged.
+  - A manual switch clears right-pane leftovers (diff, commit details, commit-message draft) so nothing leaks across repositories.
+  - Filtering: entries outside the session root, entries whose directory no longer exists, bare entries, and the submodule `.git/modules` gitdir ghost entry are all excluded; an entry whose directory still exists but that git reports as prunable is kept and marked as suspected stale.
+  - Guards: repos ≤ 50 (sorted by relative path, first 50 kept), visited directory entries ≤ 5000, 10 seconds overall; on timeout the partial scan result is returned and the switcher shows the truncation reason (`repos` / `dirs` / `timeout`) in its first line.
+  - The scan never enters ignored directories such as `node_modules`, dot-directories, or symlinks (Windows junctions are skipped the same way).
+  - Option labels (acceptance revision): the repository name leads, as `name (branch)`; the root entry gets a `· root` suffix and nested entries a `· relative path` suffix for disambiguation; a detached HEAD is labelled as such with its short hash.
+  - Dropdown option colors (acceptance revision): native select popup items inherited the transparent overlay color (color:transparent), rendering white-on-white and looking empty; options now get explicit theme-token colors, fixing both the repository and branch dropdowns in light and dark themes.
+  - Dropdown style unification (acceptance revision): the repository pill gets its own icon (an inline SVG folder glyph, matching the branch pill's icon + name + caret structure); optgroup group labels (local/remote/tags) no longer render as blank rows — they now get explicit colors instead of inheriting the transparent overlay color.
+- **Docs**: README / README.en now cover sub-repositories, the repository switcher and a multi-repository / worktree layout guide; version bumped to `0.2.0`.
+
 ## 0.1.6 (2026-09-22)
 
 - **Fix: the Git tab crashed entirely on dsh 0.1.7-alpha.1 (the real reason it "could not read the

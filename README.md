@@ -30,6 +30,13 @@ dsh 插件。宿主半注册 `/git` JSON API，浏览器半在会话区域加一
 
 > 大 diff 截断到 2 MiB，避免超大差异冻结传输与前端渲染。
 
+### 子代码库切换（会话工作目录内）
+
+- **发现**：扫描会话工作目录的子目录（深度 1）与孙目录（深度 2）中的 git 仓库；`.git` 为目录（主仓）或文件（linked worktree）都能识别。
+- **归组**：先按 `git rev-parse --git-common-dir` 把仓库归组，再由 `git worktree list` 列出组内全部检出（主仓 + `git worktree add` 产生的附加检出），区分主仓（`main`）与附加检出（`linked`）。
+- **切换**：顶栏「仓库」切换器列出发现的仓库，切换后状态 / 分支 / 差异 / 提交图整面板跟随。
+- **边界**：只管理会话工作目录**之内**的仓库；位于会话根之外的兄弟 worktree 不会出现在列表；worktree 的增删管理不在本版本范围内。
+
 ---
 
 ## 界面截图
@@ -71,6 +78,54 @@ dsh plugin --profile web add dsh-git-graph
 3. 面板内：顶部分支栏 + 提交图；选中一个提交看详情（变更文件 / 差异）；选中工作区文件可暂存 /
    提交 / 丢弃。
 4. 面板绑定「当前会话工作目录」。
+5. 会话工作目录下有多个仓库时，顶栏会出现「仓库」切换器；会话根不是仓库时会自动进入第一个子仓库。
+
+### 仓库切换器
+
+- **显示条件**：至少发现 1 个仓库，且（仓库 ≥ 2 个或会话根本身不是仓库）。只有一个仓库且会话根就是该仓库时，切换器隐藏（保持原有单仓界面）。
+- **自动进入首个子仓**：会话根不是仓库但发现了子仓库时，面板自动切到第一个子仓库（按相对路径排序，根仓库 `.` 排最前）；此前这种「非仓库根」会直接报错。
+- **切换行为**：手动切换后，右栏差异、提交详情与提交说明草稿等残留会一并清空，避免把上一个仓库的内容或草稿带到新仓库；分支胶囊、提交图与差异视图随后刷新为新仓库数据。
+- **条目文案**：`仓库名（分支）`；根仓追加「· 根」、嵌套仓追加「· 相对路径」用于消歧（单层子仓不追加）；detached HEAD 显示「游离 短哈希」。
+- **失效条目**：worktree 目录仍存在、但 git 把该条目标记为失效（`prunable`，例如管理文件缺失）时，条目保留展示并追加「⚠ 疑似失效」；目录已被手工删除的注册表残留则直接过滤掉。
+- **截断提示**：列表被截断时（仓库超过 50 个、遍历目录条目超过 5000 个，或整体扫描超过 10 秒），切换器首行显示一行不可选的「⚠ 列表已截断：原因」；原因取值为 `repos`（仓库数截断）、`dirs`（目录数截断）、`timeout`（超时，保留已扫描到的部分结果）；`repos` 与 `dirs` 可同时出现并以 `+` 组合，`timeout` 覆盖其余原因。
+
+自检清单（对应上文的四种会话布局）：
+
+1. 会话根是主仓且同级有 worktree：切换器出现多项，切换后分支胶囊 / 提交图 / 差异显示新仓库数据；
+2. 会话根是含子仓库的目录：面板自动进入第一个子仓库；
+3. 只有一个仓库且会话根就是它：切换器隐藏（界面与单仓版本一致）；
+4. 会话根不是仓库且没有子仓库：维持原有的报错提示。
+
+---
+
+## 多仓库与 worktree 布局指南
+
+面板一次管理一个仓库，但会自动发现会话工作目录内的其它仓库与其 worktree，供切换器选择。两种受支持的布局（代码不做特判，任选其一）：
+
+**布局 A：同级布局（适合功能并行开发）**
+
+```
+workspace/            # 会话工作目录
+├── proj/             # 主仓
+├── proj-fix/         # proj 的 worktree（git worktree add ../proj-fix）
+└── frontend/         # 无关仓库
+```
+
+`workspace/proj`、`workspace/proj-fix`、`workspace/frontend` 都会出现在切换器里；两个检出同组，分别标注为 `main` 与 `linked`。
+
+**布局 B：主仓内部布局（临时 / 隐藏式 worktree）**
+
+```
+workspace/
+└── proj/             # 主仓
+    ├── .git/
+    └── worktrees/
+        └── fix/      # proj 的 worktree
+```
+
+主仓内部的 worktree 目录会让主仓 `git status` 多出一条 `?? worktrees/` 未跟踪记录。建好 worktree 后，建议把 `worktrees/` 写进主仓的 `.git/info/exclude`（只影响本机，不产生版本化文件），避免状态污染。
+
+**扫描不会进入的目录**：`node_modules`、`.git`、`.dsh`、`.dsh-vision-router` 等忽略目录，以及所有以 `.` 开头的目录和符号链接（Windows 上的 junction 同样按符号链接跳过）。因此 `node_modules` 里的仓库不会被发现；pnpm 之类把仓库放进 `node_modules` 的布局请改用其它方式组织目录。
 
 ---
 
@@ -120,6 +175,15 @@ dsh plugin --profile web add dsh-git-graph
 | `remotes` | `{ path }` | 远端列表（fetch/push URL） |
 | `tags` | `{ path }` | 标签列表；`current` 为当前检出的标签（仅 detached HEAD 时非空） |
 | `conflicts` | `{ path }` | 冲突文件列表 |
+| `listRepos` | `{ path, depth? }` | 扫描 `path` 下的子代码库（子/孙目录；`depth` 缺省 2、可传 1–4），按 worktree 归组 |
+
+`listRepos` 的返回结构：
+
+- `root`：归一化后的扫描根；`rootIsRepo`：根下 `.git` 是否存在（文件或目录皆可）。
+- `repos[]`：按相对路径排序（根仓库条目 `relPath` 为 `.`，排最前），每项含 `path` / `relPath` / `name` / `branch`（detached 时为空串）/ `head`（8 位短哈希）/ `group`（归组键）/ `worktree.role`（`main` 或 `linked`）/ `prunable`（非空 = git 给出的失效原因）。
+- `truncated`：非空表示因防护而截断，取值为 `repos` / `dirs` / `timeout`；`repos` 与 `dirs` 可同时出现并以 `+` 组合，`timeout` 覆盖其余原因（表示已返回扫描到的部分结果）。
+- 过滤规则：会话根之外、目录已不存在、bare、以及 submodule 的 `.git/modules` gitdir 幽灵条目都不会入列。
+- 防护上限：repos ≤ 50、遍历目录条目 ≤ 5000、整体 ≤ 10 秒（扫描仅读取目录与执行只读 git 命令）。
 
 ---
 
@@ -168,6 +232,8 @@ node --test test/integration.test.js
 
 - 每个 `/git` 操作都限定在请求的 `path` 目录内执行，不引入任意 shell（走 `execFile` 参数数组）。
 - 请求体上限 1MiB、`git` 输出缓冲 64MiB、diff 截断 2MiB，避免超大内容拖垮进程。
+- `listRepos` 只读：不执行任何写操作，扫描范围限定在请求目录内（默认子/孙目录，最深 4 层），且有 50 仓 / 5000 目录 / 10 秒上限。
+- **`git clean` 的防护边界**：把 worktree 放在主仓内部时，`git clean` 会跳过嵌套的仓库条目（输出 `Would skip repository`），但该防护**不覆盖同级布局**的 worktree；执行 `git clean -dfx` 前请自行确认目标目录范围。
 
 ---
 
